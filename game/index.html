@@ -1,0 +1,80 @@
+<!-- SOLMAR LIVE — Streets of Gold, in 3D. An original open-world crime game in one
+     static folder: a sun-soaked coastal city rendered with Three.js, five districts to
+     explore on foot and by car, traffic and pedestrians, cars to steal, wanted stars with
+     police cars, foot cops and a helicopter, twelve missions in five acts, taxi fares and
+     package runs, shops, a live-streamed heist hook, combat, a HUD with a minimap, a start
+     screen and a localStorage save. No build step, no network: three.js is vendored. -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="SOLMAR LIVE — Streets of Gold: a 3D open-world crime game. Drive through a sun-soaked coastal city, outrun the police and the helicopter, run live-streamed heists and rise from Courier to Kingpin.">
+<link rel="icon" href="data:,">
+<title>SOLMAR LIVE — Streets of Gold</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #10141c; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  #hud { position: fixed; inset: 0; pointer-events: none; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #f5efe0; display: none; }
+  #hud .cash { position: absolute; top: 14px; left: 20px; font-size: 30px; font-weight: 800; color: #f2c94c; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
+  #hud .rank { position: absolute; top: 52px; left: 20px; font-size: 15px; color: #b9b09a; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+  #hud .stars { position: absolute; top: 12px; right: 20px; font-size: 30px; letter-spacing: 4px; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
+  #hud .bars { position: absolute; top: 54px; right: 20px; width: 210px; text-align: right; font-size: 14px; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+  #hud .bar { height: 9px; background: rgba(0,0,0,.55); border: 1px solid rgba(245,239,224,.5); margin: 3px 0 8px auto; }
+  #hud .bar > div { height: 100%; }
+  #hud .objective { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); max-width: 560px; text-align: center; font-size: 17px; font-weight: 600; background: rgba(16,20,28,.62); border: 1px solid rgba(245,239,224,.25); padding: 7px 16px; border-radius: 6px; }
+  #hud .banner { position: absolute; top: 96px; left: 50%; transform: translateX(-50%); font-size: 22px; font-weight: 800; color: #ffd94a; text-shadow: 0 2px 8px rgba(0,0,0,.9); text-align: center; }
+  #hud .speed { position: absolute; bottom: 18px; right: 22px; font-size: 26px; font-weight: 800; text-shadow: 0 2px 6px rgba(0,0,0,.8); }
+  #hud .radio { position: absolute; bottom: 52px; right: 22px; font-size: 14px; color: #b9b09a; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+  #minimap { position: absolute; bottom: 16px; left: 16px; width: 216px; height: 156px; background: rgba(20,26,38,.78); border: 1px solid rgba(245,239,224,.35); border-radius: 6px; }
+  #live { position: absolute; top: 108px; right: 20px; width: 250px; background: rgba(16,20,28,.66); border: 1px solid rgba(245,239,224,.22); border-radius: 6px; padding: 8px 10px; font-size: 13px; }
+  #live .livehead { font-weight: 800; color: #ff5a5a; }
+  #live .viewers { color: #f2c94c; font-weight: 700; }
+  #live .chat { margin-top: 6px; line-height: 1.45; max-height: 132px; overflow: hidden; }
+  #live .chat .don { color: #58d68d; }
+  #live .chat .snitch { color: #ff8a5a; font-weight: 700; }
+  #panel { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; text-align: center; color: #f5efe0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: rgba(10,14,22,.55); }
+  #panel h1 { font-size: 64px; margin: 0; color: #f2c94c; letter-spacing: 2px; text-shadow: 0 4px 24px rgba(0,0,0,.9); }
+  #panel h2 { font-size: 22px; margin: 10px 0 0; color: #f5efe0; font-weight: 600; }
+  #panel p { font-size: 16px; color: #b9b09a; max-width: 620px; line-height: 1.6; }
+  #panel .prompt { font-size: 18px; color: #f2c94c; font-weight: 700; margin-top: 18px; }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="SOLMAR LIVE Streets of Gold: a 3D open-world crime game. Drive, steal cars, outrun the police and the helicopter, run live-streamed heists and rise from Courier to Kingpin."></canvas>
+<p id="status" role="status" aria-live="polite"></p>
+<div id="hud">
+  <div class="cash" id="hud-cash">$0</div>
+  <div class="rank" id="hud-rank">Courier</div>
+  <div class="stars" id="hud-stars">☆☆☆☆☆</div>
+  <div class="bars">
+    <div id="hud-health-label">HEALTH</div>
+    <div class="bar"><div id="hud-health" style="width:100%;background:#58d68d"></div></div>
+    <div id="hud-armor-label">ARMOR</div>
+    <div class="bar"><div id="hud-armor" style="width:0%;background:#4fc3f7"></div></div>
+    <div id="hud-ammo-label">AMMO 24</div>
+  </div>
+  <div class="objective" id="hud-objective"></div>
+  <div class="banner" id="hud-banner"></div>
+  <canvas id="minimap" width="216" height="156"></canvas>
+  <div id="live">
+    <span class="livehead">● LIVE</span> <span class="viewers" id="live-viewers">0 watching</span><br>
+    <span id="live-title">SOLMAR LIVE — Rae Vega</span>
+    <div class="chat" id="live-chat"></div>
+  </div>
+  <div class="speed" id="hud-speed">0 km/h</div>
+  <div class="radio" id="hud-radio">SOL FM 101.1</div>
+</div>
+<div id="panel">
+  <h1 id="panel-title">SOLMAR LIVE</h1>
+  <h2 id="panel-sub">Streets of Gold</h2>
+  <p id="panel-body"></p>
+  <div class="prompt" id="panel-prompt"></div>
+</div>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
